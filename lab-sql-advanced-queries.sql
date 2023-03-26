@@ -40,7 +40,8 @@ select * from collaborations;
 
 # 2.For each film, list actor that has acted in more films.
 
-# I will first create a CTE, on which I will then perform a self join
+# I will first create a view, containing a CTE, on which I will then perform a self join, in order to get all the relevant info in one table
+create view prolific as
 with per_film_prolific as (
 	select 
     fa.film_id, 
@@ -55,7 +56,9 @@ with per_film_prolific as (
 		join film f
 			using (film_id))
 select 
+p1.film_id,
 p1.title,
+p2.actor_id,
 p2.first_name,
 p2.last_name,
 count(p2.film_id) as num_films
@@ -64,15 +67,26 @@ per_film_prolific p1
 	join
 		per_film_prolific p2
 			using (actor_id)
-group by 
+group by
+p1.film_id,
 p1.title,
+p2.actor_id,
 p2.first_name,
-p2.last_name
-having count(p2.film_id) in (select 
-								count(film_id) as num_films
-								from 
-                                per_film_prolific	# referring to the same CTE in my subquery to access only those counts of films that correspond to the most prolific actors per film
-								group by actor_id
-                                order by num_films desc)
-order by num_films desc;
-# 5462 rows returned
+p2.last_name;
+
+# and now I will use a CTE containing a row_number() ranking, which I will use to get my final result
+with cte_prolific as (
+	select *, row_number() over (partition by film_id order by num_films desc) as meh
+    from
+    prolific)
+select
+title,
+first_name,
+last_name,
+num_films
+from
+cte_prolific
+where
+meh = 1; # the ranking of my max(num_films) for each partition defined by a film_id
+# 997 rows returned
+
